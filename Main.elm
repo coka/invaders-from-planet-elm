@@ -8,8 +8,8 @@ import Time
 -- MODEL
 
 type alias Game =
-  { player : Character
-  , alien : Character
+  { player : Ship
+  , alien : Ship
   , projectiles : List Projectile
   }
 
@@ -22,33 +22,42 @@ initialGame =
   }
 
 
-type alias Character =
-  { position : Vec2f
-  , isFiring : Bool
+type alias Moveable a =
+  { a |
+      position : Vec2f,
+      velocity: Vec2f
   }
 
 
-initialPlayer : Character
+type alias Ship =
+  Moveable { isFiring : Bool }
+
+
+initialPlayer : Ship
 initialPlayer =
   { position = vec2f 0.0 -192.0
+  , velocity = vec2f 0.0 0.0
   , isFiring = False
   }
 
 
-initialAlien : Character
+initialAlien : Ship
 initialAlien =
   { position = vec2f 0.0 192.0
+  , velocity = vec2f 0.0 0.0
   , isFiring = False
   }
 
 
 type alias Projectile =
-  { position : Vec2f }
+  Moveable {}
 
 
 fireProjectile : Float -> Projectile
 fireProjectile origin =
-  { position = vec2f origin -192.0 }
+  { position = vec2f origin -192.0
+  , velocity = vec2f 0.0 12.0
+  }
 
 
 projectileOnScreen : Projectile -> Bool
@@ -95,19 +104,21 @@ updateGame input game =
     }
 
 
-updatePlayer : Input -> Character -> Character
+updatePlayer : Input -> Ship -> Ship
 updatePlayer input player =
   let
-    position' = add player.position (vec2f (4.0 * (toFloat input.x)) 0.0)
+    position' = add player.position player.velocity
+    velocity' = vec2f (4.0 * (toFloat input.x)) 0.0
     isFiring' = (input.y < 0)
   in
     { player |
         position <- position',
+        velocity <- velocity',
         isFiring <- isFiring'
     }
 
 
-updateProjectiles : Character -> List Projectile -> List Projectile
+updateProjectiles : Ship -> List Projectile -> List Projectile
 updateProjectiles player projectiles =
   if player.isFiring && (List.isEmpty projectiles) then
     [ fireProjectile player.position.x ]
@@ -119,7 +130,7 @@ updateProjectiles player projectiles =
 updateProjectile : Projectile -> Projectile
 updateProjectile projectile =
   let
-    position' = add projectile.position (vec2f 0.0 12.0)
+    position' = add projectile.position projectile.velocity
   in
     { projectile | position <- position' }
 
