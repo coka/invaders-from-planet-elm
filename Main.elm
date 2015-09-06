@@ -8,53 +8,140 @@ import Time
 -- MODEL
 
 type alias Game =
-  { player : Player }
+  { player : Character
+  , alien : Character
+  , projectiles : List Projectile
+  }
 
 
 initialGame : Game
 initialGame =
-  { player = initialPlayer }
+  { player = initialPlayer
+  , alien = initialAlien
+  , projectiles = []
+  }
 
 
-type alias Player =
-  { position : Float }
+type alias Character =
+  { position : Vec2f
+  , isFiring : Bool
+  }
 
 
-initialPlayer : Player
+initialPlayer : Character
 initialPlayer =
-  { position = 0.0 }
+  { position = vec2f 0.0 -192.0
+  , isFiring = False
+  }
+
+
+initialAlien : Character
+initialAlien =
+  { position = vec2f 0.0 192.0
+  , isFiring = False
+  }
+
+
+type alias Projectile =
+  { position : Vec2f }
+
+
+fireProjectile : Float -> Projectile
+fireProjectile origin =
+  { position = vec2f origin -192.0 }
+
+
+projectileOnScreen : Projectile -> Bool
+projectileOnScreen projectile =
+  projectile.position.y < 248.0
+
+
+type alias Vec2f =
+  { x : Float
+  , y : Float
+  }
+
+
+vec2f : Float -> Float -> Vec2f
+vec2f x' y' =
+  { x = x'
+  , y = y'
+  }
+
+
+add : Vec2f -> Vec2f -> Vec2f
+add v1 v2 =
+  { x = v1.x + v2.x
+  , y = v1.y + v2.y
+  }
+
+
+toTuple : Vec2f -> (Float, Float)
+toTuple vec =
+  (vec.x, vec.y)
 
 
 -- UPDATE
 
-updateGame : Int -> Game -> Game
-updateGame direction game =
+updateGame : Input -> Game -> Game
+updateGame input game =
   let
-    player' = updatePlayer direction game.player
+    player' = updatePlayer input game.player
+    projectiles' = updateProjectiles game.player game.projectiles
   in
-    { game | player <- player' }
+    { game |
+        player <- player',
+        projectiles <- projectiles'
+    }
 
 
-updatePlayer : Int -> Player -> Player
-updatePlayer direction player =
+updatePlayer : Input -> Character -> Character
+updatePlayer input player =
   let
-    position' = player.position + 4.0 * (toFloat direction)
+    position' = add player.position (vec2f (4.0 * (toFloat input.x)) 0.0)
+    isFiring' = (input.y < 0)
   in
-    { player | position <- position' }
+    { player |
+        position <- position',
+        isFiring <- isFiring'
+    }
+
+
+updateProjectiles : Character -> List Projectile -> List Projectile
+updateProjectiles player projectiles =
+  if player.isFiring && (List.isEmpty projectiles) then
+    [ fireProjectile player.position.x ]
+  else
+    List.map updateProjectile projectiles
+      |> List.filter projectileOnScreen
+
+
+updateProjectile : Projectile -> Projectile
+updateProjectile projectile =
+  let
+    position' = add projectile.position (vec2f 0.0 12.0)
+  in
+    { projectile | position <- position' }
 
 
 -- VIEW
 
 render : Game -> Graphics.Element.Element
 render game =
-  let
-    playerPosition = (game.player.position, 0.0)
-  in
-    Graphics.Collage.collage 640 480
-      [ Graphics.Collage.filled Color.black (Graphics.Collage.rect 640.0 480.0)
-      , Graphics.Collage.filled Color.white (Graphics.Collage.rect 32.0 32.0)
-          |> Graphics.Collage.move playerPosition
-      ]
+  Graphics.Collage.collage 640 480
+    [ Graphics.Collage.filled Color.black (Graphics.Collage.rect 640.0 480.0)
+    , Graphics.Collage.filled Color.white (Graphics.Collage.rect 32.0 32.0)
+        |> Graphics.Collage.move (toTuple game.player.position)
+    , Graphics.Collage.filled Color.green (Graphics.Collage.rect 32.0 32.0)
+        |> Graphics.Collage.move (toTuple game.alien.position)
+    , Graphics.Collage.group (List.map drawProjectile game.projectiles)
+    ]
+
+
+drawProjectile : Projectile -> Graphics.Collage.Form
+drawProjectile projectile =
+  Graphics.Collage.filled Color.white (Graphics.Collage.rect 4.0 16.0)
+    |> Graphics.Collage.move (toTuple projectile.position)
 
 
 -- SIGNALS
@@ -66,10 +153,16 @@ main =
 
 gameState : Signal Game
 gameState =
-  Signal.foldp updateGame initialGame direction
+  Signal.foldp updateGame initialGame input
 
 
-direction : Signal Int
-direction =
-  Signal.map .x Keyboard.arrows
+type alias Input =
+  { x : Int
+  , y : Int
+  }
+
+
+input : Signal Input
+input =
+  Keyboard.arrows
     |> Signal.sampleOn (Time.fps 60)
