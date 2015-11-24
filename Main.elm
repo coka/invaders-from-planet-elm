@@ -99,8 +99,8 @@ updateGame input game =
     projectiles' = updateProjectiles game.player game.projectiles
   in
     { game |
-        player <- player',
-        projectiles <- projectiles'
+        player = player',
+        projectiles = projectiles'
     }
 
 
@@ -112,9 +112,9 @@ updatePlayer input player =
     isFiring' = (input.y < 0)
   in
     { player |
-        position <- position',
-        velocity <- velocity',
-        isFiring <- isFiring'
+        position = position',
+        velocity = velocity',
+        isFiring = isFiring'
     }
 
 
@@ -132,7 +132,7 @@ updateProjectile projectile =
   let
     position' = add projectile.position projectile.velocity
   in
-    { projectile | position <- position' }
+    { projectile | position = position' }
 
 
 -- VIEW
